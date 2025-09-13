@@ -6,7 +6,7 @@ import { Documentation } from "@/components/Documentation";
 import { Pricing } from "@/components/Pricing";
 import { Footer } from "@/components/Footer";
 
-// ✅ Import dataset download component
+// ✅ Add this import
 import DatasetDownloads from "@/components/DatasetDownloads";
 
 const Index = () => {
@@ -16,7 +16,7 @@ const Index = () => {
       <Hero />
       <Dashboard />
 
-      {/* Our dataset downloads section */}
+      {/* ✅ New: live dataset download section */}
       <DatasetDownloads />
 
       <ApiDocumentation />
