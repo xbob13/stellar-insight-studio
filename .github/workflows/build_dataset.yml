@@ -1,0 +1,70 @@
+name: Build dataset hourly
+
+on:
+  schedule:
+    - cron: "5 * * * *"   # runs at minute 5 every hour (UTC)
+  workflow_dispatch: {}    # lets you run it manually
+
+permissions:
+  contents: write          # needed to push to the data branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build last 30 days
+        run: |
+          mkdir -p export
+          python spaceweather_base.py --days 30 --out ./export
+          ls -lh export
+
+      - name: Create latest.json manifest
+        run: |
+          LATEST_UTC=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          OWNER=${{ github.repository_owner }}
+          REPO_NAME=${{ github.event.repository.name }}
+          BRANCH=data
+          CSV_URL="https://raw.githubusercontent.com/$OWNER/$REPO_NAME/$BRANCH/spaceweather_base.csv"
+          PARQUET_URL="https://raw.githubusercontent.com/$OWNER/$REPO_NAME/$BRANCH/spaceweather_base.parquet"
+          SCHEMA_URL="https://raw.githubusercontent.com/$OWNER/$REPO_NAME/$BRANCH/spaceweather_base.schema.json"
+          README_URL="https://raw.githubusercontent.com/$OWNER/$REPO_NAME/$BRANCH/spaceweather_base.README.json"
+          cat > export/latest.json <<EOF
+          {
+            "updated_utc": "$LATEST_UTC",
+            "csv_url": "$CSV_URL",
+            "parquet_url": "$PARQUET_URL",
+            "schema_url": "$SCHEMA_URL",
+            "readme_url": "$README_URL"
+          }
+          EOF
+          cat export/latest.json
+
+      - name: Push files to data branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_UTC=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          rm -rf /tmp/data && mkdir -p /tmp/data
+          cp -r export/* /tmp/data/
+          cd /tmp/data
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "dataset update $LATEST_UTC"
+          git branch -M data
+          git remote add origin https://github.com/${{ github.repository }}.git
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data
