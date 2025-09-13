@@ -6,12 +6,19 @@ import { Documentation } from "@/components/Documentation";
 import { Pricing } from "@/components/Pricing";
 import { Footer } from "@/components/Footer";
 
+// ✅ Import dataset download component
+import DatasetDownloads from "@/components/DatasetDownloads";
+
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <Hero />
       <Dashboard />
+
+      {/* Our dataset downloads section */}
+      <DatasetDownloads />
+
       <ApiDocumentation />
       <Documentation />
       <Pricing />
