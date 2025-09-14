@@ -6,8 +6,8 @@ import { Documentation } from "@/components/Documentation";
 import { Pricing } from "@/components/Pricing";
 import { Footer } from "@/components/Footer";
 
-// ✅ Add this import
-import DatasetDownloads from "@/components/DatasetDownloads";
+// ✅ Corrected import (matches your file name)
+import DatasetsDownload from "@/components/DatasetsDownload";
 
 const Index = () => {
   return (
@@ -17,7 +17,7 @@ const Index = () => {
       <Dashboard />
 
       {/* ✅ New: live dataset download section */}
-      <DatasetDownloads />
+      <DatasetsDownload />
 
       <ApiDocumentation />
       <Documentation />
