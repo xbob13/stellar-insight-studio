@@ -1,18 +1,46 @@
+// src/components/DatasetsDownload.tsx
 import { useEffect, useState } from "react";
 
-const DatasetsDownload = () => {
-  const [meta, setMeta] = useState<any>(null);
+type Manifest = {
+  updated_utc: string;
+  csv_url: string;
+  parquet_url: string;
+  schema_url?: string;
+  readme_url?: string;
+};
+
+export default function DatasetsDownload() {
+  const [meta, setMeta] = useState<Manifest | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(import.meta.env.VITE_DATASET_MANIFEST_URL)
-      .then((res) => res.json())
-      .then(setMeta)
-      .catch((err) => console.error("Failed to load manifest", err));
+    const url = import.meta.env.VITE_DATASET_MANIFEST_URL;
+    if (!url) {
+      setErr("VITE_DATASET_MANIFEST_URL not set");
+      setLoading(false);
+      return;
+    }
+    fetch(`${url}?t=${Date.now()}`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`manifest fetch failed: ${res.status}`);
+        return res.json();
+      })
+      .then((data: Manifest) => setMeta(data))
+      .catch((e: any) => setErr(e?.message || "Failed to load manifest"))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (!meta) {
-    return <p className="p-4">Loading dataset metadata…</p>;
-  }
+  if (loading) return <section className="p-6">Loading dataset metadata…</section>;
+
+  if (err)
+    return (
+      <section className="p-6">
+        <div className="text-sm text-red-600">{err}</div>
+      </section>
+    );
+
+  if (!meta) return null;
 
   return (
     <section className="p-6 text-center">
@@ -24,12 +52,14 @@ const DatasetsDownload = () => {
         <a
           href={meta.csv_url}
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          download
         >
           Download CSV
         </a>
         <a
           href={meta.parquet_url}
           className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+          download
         >
           Download Parquet
         </a>
@@ -41,9 +71,27 @@ const DatasetsDownload = () => {
         >
           View manifest JSON
         </a>
+        {meta.schema_url && (
+          <a
+            href={meta.schema_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            View schema
+          </a>
+        )}
+        {meta.readme_url && (
+          <a
+            href={meta.readme_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            View README
+          </a>
+        )}
       </div>
     </section>
   );
-};
-
-export default DatasetsDownload;
+}
