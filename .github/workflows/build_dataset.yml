@@ -2,11 +2,11 @@ name: Build dataset hourly
 
 on:
   schedule:
-    - cron: "5 * * * *"   # runs at minute 5 every hour (UTC)
-  workflow_dispatch: {}    # lets you run it manually
+    - cron: "5 * * * *"   # every hour at :05 (UTC)
+  workflow_dispatch: {}    # allow manual run
 
 permissions:
-  contents: write          # needed to push to the data branch
+  contents: write
 
 jobs:
   build:
@@ -50,13 +50,11 @@ jobs:
             "readme_url": "$README_URL"
           }
           EOF
-          cat export/latest.json
 
       - name: Push files to data branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST_UTC=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           rm -rf /tmp/data && mkdir -p /tmp/data
           cp -r export/* /tmp/data/
           cd /tmp/data
@@ -64,7 +62,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "dataset update $LATEST_UTC"
+          git commit -m "dataset update $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           git branch -M data
           git remote add origin https://github.com/${{ github.repository }}.git
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data
