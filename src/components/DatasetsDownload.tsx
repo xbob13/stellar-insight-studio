@@ -1,70 +1,49 @@
-import { useEffect, useState } from "react"
-import { fetchManifest, type DatasetManifest } from "@/lib/manifest"
+import { useEffect, useState } from "react";
 
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-
-export default function DatasetsDownload() {
-  const [m, setM] = useState<DatasetManifest | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+const DatasetsDownload = () => {
+  const [meta, setMeta] = useState<any>(null);
 
   useEffect(() => {
-    ;(async () => {
-      try {
-        const manifest = await fetchManifest()
-        setM(manifest)
-      } catch (e: any) {
-        setErr(e?.message || "Failed to load dataset manifest")
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [])
+    fetch(import.meta.env.VITE_DATASET_MANIFEST_URL)
+      .then((res) => res.json())
+      .then(setMeta)
+      .catch((err) => console.error("Failed to load manifest", err));
+  }, []);
+
+  if (!meta) {
+    return <p className="p-4">Loading dataset metadata…</p>;
+  }
 
   return (
-    <Card className="mx-4 md:mx-8 my-8">
-      <CardHeader>
-        <CardTitle>Dataset downloads</CardTitle>
-        <CardDescription>
-          Always points to the latest hourly build (CSV &amp; Parquet).
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading && (
-          <div className="text-sm text-muted-foreground">
-            Loading latest dataset…
-          </div>
-        )}
-        {!loading && err && (
-          <div className="text-sm text-red-600">{err}</div>
-        )}
-        {!loading && m && (
-          <div className="flex flex-col gap-3">
-            <div className="text-xs text-muted-foreground">
-              Last updated: {new Date(m.updated_utc).toUTCString()}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <a href={m.csv_url} download>
-                  Download CSV
-                </a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={m.parquet_url} download>
-                  Download Parquet
-                </a>
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+    <section className="p-6 text-center">
+      <h2 className="text-2xl font-bold mb-4">Download Space Weather Dataset</h2>
+      <p className="mb-2 text-sm text-gray-500">
+        Last updated: {new Date(meta.updated_utc).toUTCString()}
+      </p>
+      <div className="flex justify-center gap-4 flex-wrap">
+        <a
+          href={meta.csv_url}
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        >
+          Download CSV
+        </a>
+        <a
+          href={meta.parquet_url}
+          className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+        >
+          Download Parquet
+        </a>
+        <a
+          href={import.meta.env.VITE_DATASET_MANIFEST_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded border px-4 py-2 text-sm hover:bg-gray-100"
+        >
+          View manifest JSON
+        </a>
+      </div>
+    </section>
+  );
+};
+
+export default DatasetsDownload;
