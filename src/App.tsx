@@ -1,27 +1,32 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route, Link, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+export default function App() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="p-4 border-b flex items-center gap-4">
+        <h1 className="text-xl font-semibold">Stellar Insight Studio</h1>
+        <nav className="flex gap-3 text-sm">
+          <Link className="underline" to="/">Home</Link>
+          <Link className="underline" to="/dashboard">Dashboard</Link>
+          <a className="underline" href="/healthz" target="_blank" rel="noreferrer">/healthz</a>
+          <a className="underline" href="/api/data" target="_blank" rel="noreferrer">/api/data</a>
+          <a className="underline" href="/api/summary" target="_blank" rel="noreferrer">/api/summary</a>
+        </nav>
+      </header>
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+      <main className="p-6">
         <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Optional alias */}
+          <Route path="/home" element={<Navigate to="/" replace />} />
+          {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+      </main>
+    </div>
+  );
+}
