@@ -8,17 +8,23 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 # --- Paths ----------------------------------------------------
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent                      # repo root at runtime on Render
-DIST = ROOT / "dist"                    # Vite build output (npm run build)
-ASSETS_DIR = DIST / "assets"            # Vite assets
+HERE = Path(__file__).resolve().parent         # .../src/api
+SRC_ROOT = HERE.parent                         # .../src
+REPO_ROOT = SRC_ROOT.parent                    # repo root
+# Try both common Vite build locations
+CANDIDATE_DIST_DIRS = [
+    SRC_ROOT / "dist",                         # /src/dist  (when building from /src)
+    REPO_ROOT / "dist",                        # /dist      (when building from repo root)
+]
+DIST = next((d for d in CANDIDATE_DIST_DIRS if (d / "index.html").exists()), None)
+ASSETS_DIR = DIST / "assets" if DIST else None
+
 DATA_PATH = HERE / "data" / "spaceweather_sample.csv"
 
 # --- App ------------------------------------------------------
 app = FastAPI(title="Stellar Insight Studio")
 
-# Serve built frontend assets
-if ASSETS_DIR.exists():
+if ASSETS_DIR and ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 def _load_df() -> pd.DataFrame:
@@ -29,8 +35,11 @@ def _load_df() -> pd.DataFrame:
 # --- Health ---------------------------------------------------
 @app.get("/healthz", include_in_schema=False)
 def healthz():
-    status = "healthy" if DATA_PATH.exists() else "missing_csv"
-    return {"status": status, "csv": str(DATA_PATH)}
+    return {
+        "status": "healthy" if DATA_PATH.exists() and DIST else "missing_parts",
+        "csv": str(DATA_PATH),
+        "dist": str(DIST) if DIST else None,
+    }
 
 # --- API: data -----------------------------------------------
 @app.get("/api/data")
@@ -47,15 +56,12 @@ def get_data(limit: Optional[int] = None, columns: Optional[str] = None):
     if limit is not None:
         df = df.head(limit)
 
-    head = df.to_dict(orient="records")
-    dtypes = {k: str(v) for k, v in df.dtypes.items()}
-
     return {
         "rows": int(df.shape[0]),
         "cols": int(df.shape[1]),
         "columns": list(df.columns),
-        "head": head,
-        "dtypes": dtypes,
+        "head": df.to_dict(orient="records"),
+        "dtypes": {k: str(v) for k, v in df.dtypes.items()},
     }
 
 # --- API: summary --------------------------------------------
@@ -66,46 +72,31 @@ def summary():
     except FileNotFoundError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
-    out = {
-        "file": DATA_PATH.name,
-        "rows": int(df.shape[0]),
-        "cols": int(df.shape[1]),
-    }
-
+    out = {"file": DATA_PATH.name, "rows": int(df.shape[0]), "cols": int(df.shape[1])}
     if "timestamp" in df.columns and not df.empty:
-        out["time_range"] = {
-            "first": str(df["timestamp"].iloc[0]),
-            "last": str(df["timestamp"].iloc[-1]),
-        }
-
+        out["time_range"] = {"first": str(df["timestamp"].iloc[0]), "last": str(df["timestamp"].iloc[-1])}
     for col in ["kp_index", "solar_wind_speed_kms"]:
         if col in df.columns:
-            out[col] = {
-                "min": float(df[col].min()),
-                "max": float(df[col].max()),
-                "avg": float(df[col].mean()),
-            }
-
+            out[col] = {"min": float(df[col].min()), "max": float(df[col].max()), "avg": float(df[col].mean())}
     return out
 
 # --- SPA: index + fallback -----------------------------------
 def _index_response():
-    index_path = DIST / "index.html"
-    if not index_path.exists():
+    if not DIST:
         return JSONResponse(
             status_code=500,
             content={
                 "error": "Frontend build not found",
-                "hint": "Ensure `npm run build` ran and /dist is present.",
+                "hint": "Ensure the build step runs and produces /dist",
+                "looked_in": [str(p) for p in CANDIDATE_DIST_DIRS],
             },
         )
-    return FileResponse(index_path)
+    return FileResponse(DIST / "index.html")
 
 @app.get("/", include_in_schema=False)
 def serve_index():
     return _index_response()
 
-# Catch-all: send index.html for client-side routes (e.g. /dashboard)
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa_fallback(full_path: str):
     if full_path.startswith("api") or full_path == "healthz":
