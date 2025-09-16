@@ -8,20 +8,21 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 # --- Paths ----------------------------------------------------
-HERE = Path(__file__).resolve().parent         # .../src/api
-SRC_ROOT = HERE.parent                         # .../src
-REPO_ROOT = SRC_ROOT.parent                    # repo root
+HERE = Path(__file__).resolve().parent         # .../api
+SRC_ROOT = HERE.parent if HERE.name == "api" else HERE.parent  # keep simple
+REPO_ROOT = SRC_ROOT.parent
+
 # Try both common Vite build locations
 CANDIDATE_DIST_DIRS = [
-    SRC_ROOT / "dist",                         # /src/dist  (when building from /src)
-    REPO_ROOT / "dist",                        # /dist      (when building from repo root)
+    SRC_ROOT / "dist",   # /src/dist  (when building from /src)
+    REPO_ROOT / "dist",  # /dist      (when building from repo root)
 ]
 DIST = next((d for d in CANDIDATE_DIST_DIRS if (d / "index.html").exists()), None)
 ASSETS_DIR = DIST / "assets" if DIST else None
 
+# CSV next to server.py in /api/data/
 DATA_PATH = HERE / "data" / "spaceweather_sample.csv"
 
-# --- App ------------------------------------------------------
 app = FastAPI(title="Stellar Insight Studio")
 
 if ASSETS_DIR and ASSETS_DIR.exists():
@@ -32,16 +33,15 @@ def _load_df() -> pd.DataFrame:
         raise FileNotFoundError(f"CSV file not found: {DATA_PATH}")
     return pd.read_csv(DATA_PATH)
 
-# --- Health ---------------------------------------------------
 @app.get("/healthz", include_in_schema=False)
 def healthz():
     return {
         "status": "healthy" if DATA_PATH.exists() and DIST else "missing_parts",
         "csv": str(DATA_PATH),
         "dist": str(DIST) if DIST else None,
+        "looked_in": [str(p) for p in CANDIDATE_DIST_DIRS],
     }
 
-# --- API: data -----------------------------------------------
 @app.get("/api/data")
 def get_data(limit: Optional[int] = None, columns: Optional[str] = None):
     try:
@@ -64,7 +64,6 @@ def get_data(limit: Optional[int] = None, columns: Optional[str] = None):
         "dtypes": {k: str(v) for k, v in df.dtypes.items()},
     }
 
-# --- API: summary --------------------------------------------
 @app.get("/api/summary")
 def summary():
     try:
@@ -80,7 +79,6 @@ def summary():
             out[col] = {"min": float(df[col].min()), "max": float(df[col].max()), "avg": float(df[col].mean())}
     return out
 
-# --- SPA: index + fallback -----------------------------------
 def _index_response():
     if not DIST:
         return JSONResponse(
