@@ -24,7 +24,6 @@ if ASSETS_DIR.exists():
 def _load_df() -> pd.DataFrame:
     if not DATA_PATH.exists():
         raise FileNotFoundError(f"CSV file not found: {DATA_PATH}")
-    # Keep timestamp as string to match your current output
     return pd.read_csv(DATA_PATH)
 
 # --- Health ---------------------------------------------------
@@ -73,13 +72,12 @@ def summary():
         "cols": int(df.shape[1]),
     }
 
-    # time range if present
     if "timestamp" in df.columns and not df.empty:
-        first = str(df["timestamp"].iloc[0])
-        last = str(df["timestamp"].iloc[-1])
-        out["time_range"] = {"first": first, "last": last}
+        out["time_range"] = {
+            "first": str(df["timestamp"].iloc[0]),
+            "last": str(df["timestamp"].iloc[-1]),
+        }
 
-    # numeric summaries (match names in your sample)
     for col in ["kp_index", "solar_wind_speed_kms"]:
         if col in df.columns:
             out[col] = {
@@ -94,7 +92,6 @@ def summary():
 def _index_response():
     index_path = DIST / "index.html"
     if not index_path.exists():
-        # Friendly message if the frontend wasn't built
         return JSONResponse(
             status_code=500,
             content={
@@ -111,7 +108,6 @@ def serve_index():
 # Catch-all: send index.html for client-side routes (e.g. /dashboard)
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa_fallback(full_path: str):
-    # Let real API/health paths 404 instead of hijacking them
     if full_path.startswith("api") or full_path == "healthz":
         raise HTTPException(status_code=404, detail="Not Found")
     return _index_response()
